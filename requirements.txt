@@ -1,0 +1,6 @@
+python-dotenv
+sqlalchemy
+asyncpg
+alembic
+python-telegram-bot==20.5
+bcrypt

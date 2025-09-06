@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pattern Lock</title>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f3f3f3; margin: 0; padding: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; }
+        #canvas { background-color: #fff; border: 2px solid #ccc; border-radius: 10px; touch-action: none; }
+        #info { margin-top: 20px; font-size: 1.1em; color: #333; }
+    </style>
+</head>
+<body>
+    <canvas id="canvas" width="300" height="300"></canvas>
+    <div id="info">Draw your pattern</div>
+
+    <script>
+        // Canvas setup
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const radius = 20;
+        const nodes = [];
+        const pattern = [];
+        let drawing = false;
+
+        // Calculate positions for a 3x3 grid
+        for (let row = 0; row < 3; row++) {
+            for (let col = 0; col < 3; col++) {
+                const x = col * 100 + 50;
+                const y = row * 100 + 50;
+                nodes.push({ id: row * 3 + col + 1, x, y, selected: false });
+            }
+        }
+
+        function drawNodes() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            // Draw lines of pattern
+            if (pattern.length > 0) {
+                ctx.beginPath();
+                ctx.lineWidth = 5;
+                ctx.strokeStyle = '#4CAF50';
+                let first = true;
+                for (const node of pattern) {
+                    if (first) {
+                        ctx.moveTo(node.x, node.y);
+                        first = false;
+                    } else {
+                        ctx.lineTo(node.x, node.y);
+                    }
+                }
+                ctx.stroke();
+            }
+            
+            // Draw nodes
+            nodes.forEach(node => {
+                ctx.beginPath();
+                ctx.arc(node.x, node.y, radius, 0, Math.PI * 2);
+                ctx.fillStyle = node.selected ? '#4CAF50' : '#fff';
+                ctx.fill();
+                ctx.lineWidth = 2;
+                ctx.strokeStyle = '#4CAF50';
+                ctx.stroke();
+            });
+        }
+
+        function getTouchPos(evt) {
+            let rect = canvas.getBoundingClientRect();
+            let clientX, clientY;
+            if (evt.touches) { // TouchEvent
+                clientX = evt.touches[0].clientX;
+                clientY = evt.touches[0].clientY;
+            } else { // MouseEvent
+                clientX = evt.clientX;
+                clientY = evt.clientY;
+            }
+            return {
+                x: clientX - rect.left,
+                y: clientY - rect.top
+            };
+        }
+
+        function detectNode(x, y) {
+            for (let node of nodes) {
+                let distance = Math.hypot(node.x - x, node.y - y);
+                if (distance < radius + 10 && !node.selected) {
+                    node.selected = true;
+                    pattern.push(node);
+                    return node;
+                }
+            }
+            return null;
+        }
+
+        function resetPattern() {
+            pattern.length = 0;
+            nodes.forEach(node => node.selected = false);
+            drawNodes();
+        }
+
+        function finishPattern() {
+            if (pattern.length > 0) {
+                // Build pattern string (e.g. "1-2-5-8")
+                const patternString = pattern.map(node => node.id).join('-');
+                // Send data to Telegram WebApp
+                if (window.Telegram.WebApp) {
+                    Telegram.WebApp.sendData(JSON.stringify({ pattern: patternString }));
+                } else {
+                    alert('Telegram WebApp interface not available.');
+                }
+            }
+        }
+
+        canvas.addEventListener('mousedown', (evt) => {
+            drawing = true;
+            const pos = getTouchPos(evt);
+            detectNode(pos.x, pos.y);
+            drawNodes();
+        });
+
+        canvas.addEventListener('mousemove', (evt) => {
+            if (!drawing) return;
+            const pos = getTouchPos(evt);
+            if (detectNode(pos.x, pos.y)) {
+                drawNodes();
+            }
+        });
+
+        canvas.addEventListener('mouseup', (evt) => {
+            drawing = false;
+            finishPattern();
+            setTimeout(resetPattern, 500);
+        });
+
+        // Touch events for mobile
+        canvas.addEventListener('touchstart', (evt) => {
+            evt.preventDefault();
+            drawing = true;
+            const pos = getTouchPos(evt);
+            detectNode(pos.x, pos.y);
+            drawNodes();
+        });
+
+        canvas.addEventListener('touchmove', (evt) => {
+            evt.preventDefault();
+            if (!drawing) return;
+            const pos = getTouchPos(evt);
+            if (detectNode(pos.x, pos.y)) {
+                drawNodes();
+            }
+        });
+
+        canvas.addEventListener('touchend', (evt) => {
+            drawing = false;
+            finishPattern();
+            setTimeout(resetPattern, 500);
+        });
+
+        // Initial draw
+        drawNodes();
+    </script>
+</body>
+</html>
